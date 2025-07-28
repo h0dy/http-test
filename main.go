@@ -14,28 +14,33 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db *database.Queries
 }
 
 func main() {
 	if err := godotenv.Load();  err != nil {
-		log.Fatal("error in loading env file")
+		log.Fatalf("error in loading env file: %v", err)
 	}
 
 	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatalf("make sure to set up DB_URL")
+	}
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal("error in connecting to database")
+		log.Fatalf("error in connecting to database %v", err)
 	}
+	
 	dbQueries := database.New(db)
+	apiCfg := &apiConfig{
+		fileserverHits: atomic.Int32{},
+		db: dbQueries,
+	}
 
 	const port = "8080"
 	const filepath = "."
 	mux := http.NewServeMux()
 	serveApp := http.StripPrefix("/app/", http.FileServer(http.Dir(filepath)))
-
-	apiCfg := &apiConfig{
-		fileserverHits: atomic.Int32{},
-	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(serveApp))
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
