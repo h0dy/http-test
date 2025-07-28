@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"os"
 	"sync/atomic"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/h0dy/http-server/internal/database"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -18,13 +16,6 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
 	platform string
-}
-
-type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
 }
 
 func main() {
@@ -59,11 +50,11 @@ func main() {
 	serveApp := http.StripPrefix("/app/", http.FileServer(http.Dir(filepath)))
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(serveApp))
-	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
-	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/users", apiCfg.handlerCreateUser)
+	mux.HandleFunc("POST /api/chirps", apiCfg.handlerCreateChirp)
 
 	server := &http.Server{Addr: ":" + port, Handler: mux}
 

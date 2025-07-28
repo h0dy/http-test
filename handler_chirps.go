@@ -1,0 +1,71 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/h0dy/http-server/internal/database"
+)
+
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID  `json:"user_id"`
+}
+
+func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
+	type body struct {
+		Body string `json:"body"`
+		UserId uuid.UUID `json:"user_id"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	data := body{}
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&data); err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "Couldn't decode the json data", err)
+		return
+	}
+	if data.Body == "" {
+		respondWithErr(w, http.StatusBadRequest, "Make sure to provide a body (chirp)", nil)
+	}
+	if data.UserId.String() == "" {
+		respondWithErr(w, http.StatusBadRequest, "Make sure to provide a user id", nil)
+	}
+	cleaned_body, err := validateChirp(data.Body)
+	if err != nil {
+		respondWithErr(w, http.StatusBadRequest, err.Error(), err)
+		return
+	}
+	
+	chirp, err := cfg.db.CreateChirp(context.Background(), database.CreateChirpParams{
+		Body: cleaned_body,
+		UserID:data.UserId,
+	})
+	if err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "Couldn't create chirp", err)
+		return
+	}
+
+	respondWithJson(w, http.StatusCreated, Chirp{
+		ID: chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body: chirp.Body,
+		UserID: chirp.UserID,
+	})
+}
+
+func validateChirp(body string) (string, error) {
+	if len(body) > 140 {
+		return "", errors.New("chirp is too long! that's a premium feature")
+	}
+	return replaceProfaneWords(body), nil
+}

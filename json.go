@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"github.com/h0dy/http-server/internal/database"
 )
 
 func respondWithErr(w http.ResponseWriter, code int, msg string, err error) {
@@ -29,11 +27,4 @@ func respondWithJson(w http.ResponseWriter, code int, payload any){
 	}
 	w.WriteHeader(code)
 	w.Write(data)
-}
-
-func respondWithJsonUser(w http.ResponseWriter, code int, user database.User){
-	encoder := json.NewEncoder(w)
-	w.WriteHeader(201)
-	encoder.Encode(user)
-	
 }

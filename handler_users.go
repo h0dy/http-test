@@ -4,7 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 )
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type body struct {
@@ -29,13 +38,10 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't create user in DB", err)
 		return 
 	}
-	userData := User{
+	respondWithJson(w, http.StatusCreated, User{
 		ID: user.ID,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
-	}
-	encoder := json.NewEncoder(w)
-	w.WriteHeader(http.StatusCreated)
-	encoder.Encode(userData)
+	})
 }
