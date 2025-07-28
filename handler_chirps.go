@@ -33,9 +33,6 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't decode the json data", err)
 		return
 	}
-	if data.Body == "" {
-		respondWithErr(w, http.StatusBadRequest, "Make sure to provide a body (chirp)", nil)
-	}
 	if data.UserId.String() == "" {
 		respondWithErr(w, http.StatusBadRequest, "Make sure to provide a user id", nil)
 	}
@@ -63,7 +60,31 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	chirps, err  := cfg.db.GetAllChirps(context.Background())
+	if err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
+		return
+	}
+	chirpsJson := []Chirp{}
+	for _, chirp := range chirps {
+		chirpsJson = append(chirpsJson, Chirp{
+			ID: chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body: chirp.Body,
+			UserID: chirp.UserID,
+		})
+	}
+	respondWithJson(w, http.StatusOK, chirpsJson)
+
+}
+
 func validateChirp(body string) (string, error) {
+	if body == "" {
+		return "", errors.New("make sure to provide a body (chirp)")
+	}
 	if len(body) > 140 {
 		return "", errors.New("chirp is too long! that's a premium feature")
 	}
