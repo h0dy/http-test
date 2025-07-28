@@ -19,6 +19,16 @@ type Chirp struct {
 	UserID    uuid.UUID  `json:"user_id"`
 }
 
+func validateChirp(body string) (string, error) {
+	if body == "" {
+		return "", errors.New("make sure to provide a body (chirp)")
+	}
+	if len(body) > 140 {
+		return "", errors.New("chirp is too long! that's a premium feature")
+	}
+	return replaceProfaneWords(body), nil
+}
+
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Body string `json:"body"`
@@ -81,12 +91,22 @@ func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func validateChirp(body string) (string, error) {
-	if body == "" {
-		return "", errors.New("make sure to provide a body (chirp)")
+func (cfg *apiConfig)handlerGetSingleChirp(w http.ResponseWriter, r *http.Request) {
+	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithErr(w, http.StatusBadRequest, "Invalid chirp id", err)
+		return
 	}
-	if len(body) > 140 {
-		return "", errors.New("chirp is too long! that's a premium feature")
+	chirp, err := cfg.db.GetChirp(context.Background(), chirpId)
+	if err != nil {
+		respondWithErr(w, http.StatusNotFound, "Couldn't retrieve the chirp", err)
+		return
 	}
-	return replaceProfaneWords(body), nil
+	respondWithJson(w, http.StatusOK, Chirp{
+		ID: chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body: chirp.Body,
+		UserID: chirp.UserID,
+	})
 }
