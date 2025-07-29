@@ -2,7 +2,6 @@ package main
 
 import "testing"
 
-
 func TestProfane(t *testing.T) {
 	cases := []struct{
 		input string
