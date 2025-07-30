@@ -68,11 +68,11 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
-		ExpiresInSeconds int `json:"expires_in_seconds"`
 	}
 	type response struct {
 		User
 		Token string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 	
 	w.Header().Set("Content-Type", "application/json")
@@ -95,15 +95,23 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	if hour := 60 * 60; data.ExpiresInSeconds <= 0 || data.ExpiresInSeconds > hour {
-		data.ExpiresInSeconds = hour
-	}
-	
-	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Duration(data.ExpiresInSeconds) * time.Second)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "error in generating token", err)
 		return
 	}
+	
+	refreshToken := auth.MarkRefreshToken()
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token: refreshToken,
+		UserID: user.ID,
+		ExpireAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+	})
+	if err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "Couldn't create access JWT", err)
+		return
+	}
+
 	respondWithJson(w, http.StatusOK, response{
 		User: User{
 			ID: user.ID,
@@ -111,6 +119,7 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email: user.Email,
 		},
-		Token: token,
+		Token: accessToken,
+		RefreshToken: refreshToken,
 	})
 }
