@@ -12,14 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 
 func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
-	type body struct {
+	type reqBody struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
 	}
@@ -27,7 +28,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
 	
-	data := body{}
+	data := reqBody{}
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't decode the json data", err)
@@ -61,11 +62,12 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		Email: user.Email,
+		IsChirpyRed: user.IsChirpyRed,
 	})
 }
 
 func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
-	type body struct {
+	type reqBody struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
 	}
@@ -78,7 +80,7 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
 	
-	data := body{}
+	data := reqBody{}
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't decode the json data", err)
@@ -118,8 +120,69 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 			Email: user.Email,
+			IsChirpyRed: user.IsChirpyRed,
 		},
 		Token: accessToken,
 		RefreshToken: refreshToken,
+	})
+}
+
+func (cfg *apiConfig) handlerUpdateUser(w http.ResponseWriter, r *http.Request) {
+	type reqBody struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+	
+	type response struct {
+		User
+		Token string `json:"token"`
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	defer r.Body.Close()
+
+	data := reqBody{}
+	decoder := json.NewDecoder(r.Body) 
+	if err := decoder.Decode(&data); err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "something went wrong", err)
+		return
+	}
+
+	accessToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
+	
+	userID, err := auth.ValidateJWT(accessToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
+	
+	hashedPassword, err := auth.HashPassword(data.Password)
+	if err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "Couldn't hash the password", err)
+	}
+
+	user, err := cfg.db.UpdateUserPassEmail(r.Context(), database.UpdateUserPassEmailParams{
+		Email:data.Email,
+		HashedPassword: hashedPassword,
+		ID: userID,
+	}); 
+	if err != nil {
+		respondWithErr(w, http.StatusNotFound, "Couldn't find the user", err)
+		return
+	}
+
+	respondWithJson(w, http.StatusOK, response{
+		User: User{
+			ID: user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email: user.Email,
+			IsChirpyRed: user.IsChirpyRed,
+		},
+		Token:accessToken,
 	})
 }
