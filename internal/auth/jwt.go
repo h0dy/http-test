@@ -5,8 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -54,15 +52,6 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 		return uuid.Nil, fmt.Errorf("invalid id; couldn't parse use id: %v", err.Error())
 	}
 	return userId, nil
-}
-
-func GetBearerToken(headers http.Header) (string, error) {
-	authHeader := headers.Get("Authorization")
-	authToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))
-	if authToken == "" {
-		return "", errors.New("token doesn't exists")
-	}
-	return authToken, nil
 }
 
 func MarkRefreshToken() string {

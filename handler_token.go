@@ -17,6 +17,7 @@ func (cfg *apiConfig)handlerRefreshToken(w http.ResponseWriter, r *http.Request)
 	type response struct {
 		Token string `json:"token"`
 	}
+	w.Header().Set("Content-Type", "application/json")
 	
 	user, err := cfg.db.GetUserFromRefreshToken(r.Context(), headerToken)
 	if err != nil {
