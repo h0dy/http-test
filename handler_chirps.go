@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/h0dy/http-server/internal/auth"
 	"github.com/h0dy/http-server/internal/database"
 )
 
@@ -32,10 +32,21 @@ func validateChirp(body string) (string, error) {
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Body string `json:"body"`
-		UserId uuid.UUID `json:"user_id"`
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	defer r.Body.Close()
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
+	userId, err := auth.ValidateJWT(authToken, cfg.jwtSecret)
+	if err != nil {
+		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
+		return
+	}
 
 	data := body{}
 	decoder := json.NewDecoder(r.Body)
@@ -43,24 +54,23 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't decode the json data", err)
 		return
 	}
-	if data.UserId.String() == "" {
-		respondWithErr(w, http.StatusBadRequest, "Make sure to provide a user id", nil)
-	}
+
 	cleaned_body, err := validateChirp(data.Body)
 	if err != nil {
 		respondWithErr(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
+
+
 	
-	chirp, err := cfg.db.CreateChirp(context.Background(), database.CreateChirpParams{
+	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
 		Body: cleaned_body,
-		UserID:data.UserId,
+		UserID:userId,
 	})
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't create chirp", err)
 		return
 	}
-
 	respondWithJson(w, http.StatusCreated, Chirp{
 		ID: chirp.ID,
 		CreatedAt: chirp.CreatedAt,
@@ -72,7 +82,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	chirps, err  := cfg.db.GetAllChirps(context.Background())
+	chirps, err  := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
 		return
@@ -97,7 +107,7 @@ func (cfg *apiConfig)handlerGetSingleChirp(w http.ResponseWriter, r *http.Reques
 		respondWithErr(w, http.StatusBadRequest, "Invalid chirp id", err)
 		return
 	}
-	chirp, err := cfg.db.GetChirp(context.Background(), chirpId)
+	chirp, err := cfg.db.GetChirp(r.Context(), chirpId)
 	if err != nil {
 		respondWithErr(w, http.StatusNotFound, "Couldn't retrieve the chirp", err)
 		return

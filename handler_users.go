@@ -25,6 +25,7 @@ func (cfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	defer r.Body.Close()
 	
 	data := body{}
 	decoder := json.NewDecoder(r.Body)
@@ -67,8 +68,16 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	type body struct {
 		Email string `json:"email"`
 		Password string `json:"password"`
+		ExpiresInSeconds int `json:"expires_in_seconds"`
 	}
-
+	type response struct {
+		User
+		Token string `json:"token"`
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	defer r.Body.Close()
+	
 	data := body{}
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&data); err != nil {
@@ -77,18 +86,31 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := cfg.db.GetUserByEmail(context.Background(), data.Email)
 	if err != nil {
-		respondWithErr(w, http.StatusBadRequest, "Something went wrong, or the user doesn't exists", err)
+		respondWithErr(w, http.StatusBadRequest, "Incorrect credential; incorrect email or password", err)
 		return 
 	}
+	
 	if err := auth.CheckPasswordHash(data.Password, user.HashedPassword); err != nil {
 		respondWithErr(w, http.StatusUnauthorized, "Incorrect credential; incorrect email or password", err)
 		return
 	}
-
-	respondWithJson(w, http.StatusOK, User{
-		ID: user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email: user.Email,
+	
+	if hour := 60 * 60; data.ExpiresInSeconds <= 0 || data.ExpiresInSeconds > hour {
+		data.ExpiresInSeconds = hour
+	}
+	
+	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Duration(data.ExpiresInSeconds) * time.Second)
+	if err != nil {
+		respondWithErr(w, http.StatusInternalServerError, "error in generating token", err)
+		return
+	}
+	respondWithJson(w, http.StatusOK, response{
+		User: User{
+			ID: user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Email: user.Email,
+		},
+		Token: token,
 	})
 }

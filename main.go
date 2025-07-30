@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db *database.Queries
 	platform string
+	jwtSecret string
 }
 
 func main() {
@@ -31,6 +32,10 @@ func main() {
 	if platform == "" {
 		log.Fatal("make sure you set up PLATFORM")
 	}
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("make sure you set up JWT_SECRET")
+	}
 	
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -42,6 +47,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		db: dbQueries,
 		platform: platform,
+		jwtSecret: jwtSecret,
 	}
 
 	const port = "8080"
