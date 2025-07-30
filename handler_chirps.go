@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -80,11 +81,29 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	chirps, err  := cfg.db.GetAllChirps(r.Context())
+
+	authorId, err := uuid.Parse(r.URL.Query().Get("author_id"))
+	validAuthorId := true
+	if err != nil {
+		validAuthorId = false
+	}
+	
+	chirps, err := cfg.db.GetAllChirps(r.Context(), uuid.NullUUID{
+		UUID: authorId,
+		Valid: validAuthorId,
+	})
+	sortChirps := r.URL.Query().Get("sort")
+	if sortChirps == "desc" {
+		sort.Slice(chirps, func(i, j int) bool {
+			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+		})
+	}
+	
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	
 	chirpsJson := []Chirp{}

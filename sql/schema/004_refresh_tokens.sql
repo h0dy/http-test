@@ -4,7 +4,7 @@ CREATE TABLE refresh_tokens(
     created_at TIMESTAMP NOT NULL,
     updated_at TIMESTAMP NOT NULL,
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    expire_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
     revoked_at TIMESTAMP
 );
 

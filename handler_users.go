@@ -107,7 +107,7 @@ func (cfg *apiConfig) handlerUserLogin(w http.ResponseWriter, r *http.Request) {
 	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
 		Token: refreshToken,
 		UserID: user.ID,
-		ExpireAt: time.Now().UTC().Add(time.Hour * 24 * 60),
+		ExpiresAt: time.Now().UTC().Add(time.Hour * 24 * 60),
 	})
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't create access JWT", err)
