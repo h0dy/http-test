@@ -17,9 +17,10 @@ type Chirp struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
-	UserID    uuid.UUID  `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
+// validateChirp func cleans the chirp(text) and validate the chirp if it's longer  than 140 characters
 func validateChirp(body string) (string, error) {
 	if body == "" {
 		return "", errors.New("make sure to provide a body (chirp)")
@@ -38,12 +39,12 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	defer r.Body.Close()
 
-	authToken, err := auth.GetBearerToken(r.Header)
+	authToken, err := auth.GetBearerToken(r.Header) // get the token from the header
 	if err != nil {
 		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
 	}
-	userId, err := auth.ValidateJWT(authToken, cfg.jwtSecret)
+	userId, err := auth.ValidateJWT(authToken, cfg.jwtSecret) // validate the token
 	if err != nil {
 		respondWithErr(w, http.StatusUnauthorized, "Unauthorized", err)
 		return
@@ -63,33 +64,34 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 	}
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
-		Body: cleaned_body,
-		UserID:userId,
+		Body:   cleaned_body,
+		UserID: userId,
 	})
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't create chirp", err)
 		return
 	}
 	respondWithJson(w, http.StatusCreated, Chirp{
-		ID: chirp.ID,
+		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
-		Body: chirp.Body,
-		UserID: chirp.UserID,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
 	})
 }
 
-func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
+	// get optional query parameter for chirps based on author_id
 	authorId, err := uuid.Parse(r.URL.Query().Get("author_id"))
 	validAuthorId := true
 	if err != nil {
 		validAuthorId = false
 	}
-	
+
 	chirps, err := cfg.db.GetAllChirps(r.Context(), uuid.NullUUID{
-		UUID: authorId,
+		UUID:  authorId,
 		Valid: validAuthorId,
 	})
 	sortChirps := r.URL.Query().Get("sort")
@@ -98,51 +100,51 @@ func (cfg *apiConfig)handlerGetChirps(w http.ResponseWriter, r *http.Request) {
 			return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
 		})
 	}
-	
+
 	if err != nil {
 		respondWithErr(w, http.StatusInternalServerError, "Couldn't retrieve chirps", err)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	chirpsJson := []Chirp{}
 	for _, chirp := range chirps {
 		chirpsJson = append(chirpsJson, Chirp{
-			ID: chirp.ID,
+			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
-			Body: chirp.Body,
-			UserID: chirp.UserID,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
 		})
 	}
 	respondWithJson(w, http.StatusOK, chirpsJson)
 
 }
 
-func (cfg *apiConfig)handlerGetSingleChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerGetSingleChirp(w http.ResponseWriter, r *http.Request) {
 	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
 		respondWithErr(w, http.StatusBadRequest, "Invalid chirp id", err)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	chirp, err := cfg.db.GetChirp(r.Context(), chirpId)
 	if err != nil {
 		respondWithErr(w, http.StatusNotFound, "Couldn't retrieve the chirp", err)
 		return
 	}
 	respondWithJson(w, http.StatusOK, Chirp{
-		ID: chirp.ID,
+		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
-		Body: chirp.Body,
-		UserID: chirp.UserID,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID,
 	})
 }
 
-func (cfg *apiConfig)handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerDeleteChirp(w http.ResponseWriter, r *http.Request) {
 	chirpId, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
 		respondWithErr(w, http.StatusBadRequest, "Invalid chirp id", err)
@@ -170,7 +172,7 @@ func (cfg *apiConfig)handlerDeleteChirp(w http.ResponseWriter, r *http.Request) 
 		respondWithErr(w, http.StatusForbidden, "chirp owner doesn't match access token's id", err)
 		return
 	}
-	
+
 	cfg.db.DeleteChirpById(r.Context(), chirpId)
 	w.WriteHeader(http.StatusNoContent)
 }

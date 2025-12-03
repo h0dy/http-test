@@ -6,16 +6,17 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// HashPassword func hashes plain password using bcrypt with 12 cost
 func HashPassword(password string) (string, error) {
 	hashedPass, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		return "", fmt.Errorf("error in hashing password: %v", err)
 	}
-	
+
 	return string(hashedPass), nil
 }
 
 func CheckPasswordHash(password, hash string) error {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password) )
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err
 }

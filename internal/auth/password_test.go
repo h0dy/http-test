@@ -5,8 +5,8 @@ import (
 )
 
 func TestPassword(t *testing.T) {
-	cases := []struct{
-		input string
+	cases := []struct {
+		input    string
 		expected string
 	}{
 		{

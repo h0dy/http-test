@@ -5,8 +5,7 @@ import (
 	"strings"
 )
 
-
-func replaceProfaneWords(input string) string{
+func replaceProfaneWords(input string) string {
 	profaneWords := []string{"kerfuffle", "sharbert", "fornax"}
 	words := strings.Split(input, " ")
 	for idx, word := range words {

@@ -17,6 +17,7 @@ func GetAPIKey(headers http.Header) (string, error) {
 	return apiKey, nil
 }
 
+// GetBearerToken func gets Authorization (header) value
 func GetBearerToken(headers http.Header) (string, error) {
 	authHeader := headers.Get("Authorization")
 	authToken := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer"))

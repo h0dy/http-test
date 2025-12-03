@@ -10,14 +10,15 @@ import (
 	"github.com/h0dy/http-server/internal/auth"
 )
 
+// handlerChirpyUpgrade func is a handler to handle polka (payment provider) webhooks signals
 func (cfg *apiConfig) handlerChirpyUpgrade(w http.ResponseWriter, r *http.Request) {
-	type reqBody struct{
+	type reqBody struct {
 		Event string `json:"event"`
-		Data struct{
+		Data  struct {
 			UserId uuid.UUID `json:"user_id"`
 		} `json:"data"`
 	}
-	
+
 	polkaApiKey, err := auth.GetAPIKey(r.Header)
 	if err != nil {
 		respondWithErr(w, http.StatusUnauthorized, err.Error(), err)
@@ -39,7 +40,7 @@ func (cfg *apiConfig) handlerChirpyUpgrade(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := cfg.db.UpgradeToChirpyRed(r.Context(), data.Data.UserId);  err != nil {
+	if err := cfg.db.UpgradeToChirpyRed(r.Context(), data.Data.UserId); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			respondWithErr(w, http.StatusNotFound, "Couldn't find the user", err)
 			return
